@@ -1,0 +1,29 @@
+{
+  "name": "formgpt-backend",
+  "version": "1.0.0",
+  "description": "AI service to generate form JSON from text prompts.",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "ai",
+    "form-builder",
+    "express",
+    "openrouter",
+    "esm"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

@@ -1,0 +1,6 @@
+// File: formgpt-backend/.gitignore
+# Node.js dependencies
+node_modules
+
+# Environment variables
+.env
