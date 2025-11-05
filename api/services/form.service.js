@@ -18,8 +18,8 @@ async function generateFormSchema(userPrompt) {
     { role: 'user', content: userPrompt }
   ];
 
-  let rawAiResponse = ''; // Variable to store the raw string for debugging
-  let jsonString = ''; // Variable to store the cleaned JSON string
+  let rawAiResponse = '';
+  let jsonString = ''; 
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -27,11 +27,11 @@ async function generateFormSchema(userPrompt) {
       headers: {
         'Authorization': `Bearer ${config.openRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': config.siteUrl, // Optional, for analytics
-        'X-Title': config.siteTitle     // Optional, for analytics
+        'HTTP-Referer': config.siteUrl,
+        'X-Title': config.siteTitle     
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash', // Using the model you specified
+        model: config.OpenRouterModel,
         messages: messages,
       }),
     });
@@ -45,7 +45,6 @@ async function generateFormSchema(userPrompt) {
     rawAiResponse = data.choices[0].message.content;
 
     // --- 1. The "Cleaner" ---
-    // Clean the AI response to remove markdown fences
     const startIndex = rawAiResponse.indexOf('[');
     const endIndex = rawAiResponse.lastIndexOf(']');
 
@@ -66,22 +65,18 @@ async function generateFormSchema(userPrompt) {
     // --- 2. The "Parser" ---
     const parsedSchema = JSON.parse(jsonString);
 
-    // --- 3. The "Validator" (NEW) ---
-    // This will check the parsed JSON against our strict Zod schema.
-    // We use safeParse to get a detailed error report if it fails.
+    // --- 3. The "Validator" ---
     const validationResult = formSchema.safeParse(parsedSchema);
 
     if (!validationResult.success) {
       // Throw a specific error that our handler can catch
-      // This formats Zod's error into a readable string
       const errorMessage = validationResult.error.errors.map(e => `[${e.path.join('.')}] ${e.message}`).join('; ');
       throw new Error(`Zod Validation Failed: ${errorMessage}`);
     }
 
     // --- 4. The "Janitor" (Future Step) ---
-    // For now, we just return the *safe*, validated data.
     
-    return validationResult.data; // Return the data from the validation result
+    return validationResult.data;
 
   } catch (error) {
     console.error('Error in generateFormSchema:', error);
@@ -104,7 +99,6 @@ async function generateFormSchema(userPrompt) {
       throw new Error(`AI generated an invalid schema: ${error.message}`);
     }
 
-    // Re-throw other errors (e.g., fetch error, API key error)
     throw error; 
   }
 }

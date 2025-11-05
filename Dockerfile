@@ -15,9 +15,15 @@ COPY package.json package-lock.json* ./
 # Install *only* production dependencies to keep the image lean
 RUN npm install --production
 
-# --- Stage 3: Copy Source Code ---
-# Copy the rest of your application code
-COPY . .
+# --- Stage 3: Copy Source Code (Optimized) ---
+# Explicitly copy *only* the code needed to run the app.
+# This avoids copying .git, local .env, README, etc.
+# It also includes our new 'public' folder.
+COPY index.js .
+COPY app.js .
+COPY api ./api
+COPY config ./config
+COPY public ./public
 
 # --- Stage 4: Configure and Run ---
 # Set node environment to production
