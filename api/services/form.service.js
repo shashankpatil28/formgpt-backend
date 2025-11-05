@@ -1,5 +1,6 @@
 // File: formgpt-backend/api/services/form.service.js
 import { config } from '../../config/index.js';
+import { formSchema } from '../utils/formSchema.js';
 import { MASTER_PROMPT } from '../utils/prompt.util.js';
 
 /**
@@ -18,6 +19,7 @@ async function generateFormSchema(userPrompt) {
   ];
 
   let rawAiResponse = ''; // Variable to store the raw string for debugging
+  let jsonString = ''; // Variable to store the cleaned JSON string
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -42,13 +44,10 @@ async function generateFormSchema(userPrompt) {
     const data = await response.json();
     rawAiResponse = data.choices[0].message.content;
 
-    // --- NEW FIX ---
+    // --- 1. The "Cleaner" ---
     // Clean the AI response to remove markdown fences
-    // Find the first '[' and the last ']'
     const startIndex = rawAiResponse.indexOf('[');
     const endIndex = rawAiResponse.lastIndexOf(']');
-
-    let jsonString = '';
 
     if (startIndex !== -1 && endIndex !== -1) {
       jsonString = rawAiResponse.substring(startIndex, endIndex + 1);
@@ -63,22 +62,49 @@ async function generateFormSchema(userPrompt) {
         throw new Error('No valid JSON array or object found in AI response.');
       }
     }
-    // --- END NEW FIX ---
 
-    // The most important step: Parse the CLEANED string
-    const schema = JSON.parse(jsonString);
-    return schema;
+    // --- 2. The "Parser" ---
+    const parsedSchema = JSON.parse(jsonString);
+
+    // --- 3. The "Validator" (NEW) ---
+    // This will check the parsed JSON against our strict Zod schema.
+    // We use safeParse to get a detailed error report if it fails.
+    const validationResult = formSchema.safeParse(parsedSchema);
+
+    if (!validationResult.success) {
+      // Throw a specific error that our handler can catch
+      // This formats Zod's error into a readable string
+      const errorMessage = validationResult.error.errors.map(e => `[${e.path.join('.')}] ${e.message}`).join('; ');
+      throw new Error(`Zod Validation Failed: ${errorMessage}`);
+    }
+
+    // --- 4. The "Janitor" (Future Step) ---
+    // For now, we just return the *safe*, validated data.
+    
+    return validationResult.data; // Return the data from the validation result
 
   } catch (error) {
     console.error('Error in generateFormSchema:', error);
+    
     if (error instanceof SyntaxError) {
-      // This means the AI gave us invalid JSON
+      // This means JSON.parse() failed
       console.error('--- FAILED TO PARSE (Original AI Response) ---');
       console.error(rawAiResponse);
       console.error('-----------------------------------------------');
       throw new Error('Failed to parse AI response. The generated JSON was invalid.');
     }
-    // Re-throw other errors to be caught by the controller
+    
+    if (error.message.startsWith('Zod Validation Failed:')) {
+      // This means our new Validator caught a schema error
+      console.error('--- ZOD VALIDATION FAILED ---');
+      console.error(error.message); // The formatted error
+      console.error('--- Original Parsed JSON ---');
+      console.error(JSON.stringify(JSON.parse(jsonString), null, 2)); // Log the object that failed
+      console.error('-----------------------------');
+      throw new Error(`AI generated an invalid schema: ${error.message}`);
+    }
+
+    // Re-throw other errors (e.g., fetch error, API key error)
     throw error; 
   }
 }
